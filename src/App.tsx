@@ -4,7 +4,7 @@ import DetailPanel from './components/DetailPanel';
 import SearchPanel from './components/SearchPanel';
 import { chillanExample } from './data/chillanExample';
 import { getWikipediaExtract } from './services/wikipedia';
-import { generateGraph } from './services/api';
+import { generateGraph, RateLimitError } from './services/api';
 import type { ContextGraph, ContextNode, ContextDepth, WikiSearchResult } from './types';
 import { DEPTH_OPTIONS } from './types';
 
@@ -14,10 +14,36 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [depth, setDepth] = useState<ContextDepth>('standard');
+  const [cooldown, setCooldown] = useState(0);
   const lastResultRef = useRef<WikiSearchResult | null>(null);
   const prevDepthRef = useRef<ContextDepth>(depth);
+  const cooldownRef = useRef<ReturnType<typeof setInterval>>(undefined);
+
+  // Cooldown countdown timer
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    cooldownRef.current = setInterval(() => {
+      setCooldown((prev) => {
+        if (prev <= 1) {
+          clearInterval(cooldownRef.current);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(cooldownRef.current);
+  }, [cooldown > 0]); // only restart when transitioning to/from cooldown
+
+  // Auto-retry when cooldown expires
+  useEffect(() => {
+    if (cooldown === 0 && lastResultRef.current && error?.includes('Rate limit')) {
+      setError(null);
+      handleSearch(lastResultRef.current);
+    }
+  }, [cooldown]);
 
   const handleSearch = useCallback(async (result: WikiSearchResult) => {
+    if (cooldown > 0) return; // don't fire during cooldown
     lastResultRef.current = result;
     setIsLoading(true);
     setError(null);
@@ -28,11 +54,16 @@ function App() {
       const newGraph = await generateGraph(result.title, extract, depth);
       setGraph(newGraph);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong');
+      if (err instanceof RateLimitError) {
+        setCooldown(err.retryAfter);
+        setError('Rate limit reached — auto-retrying when cooldown expires.');
+      } else {
+        setError(err instanceof Error ? err.message : 'Something went wrong');
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [depth]);
+  }, [depth, cooldown]);
 
   // Auto-regenerate when depth changes and there's a previous search
   useEffect(() => {
@@ -78,8 +109,21 @@ function App() {
       </header>
 
       {error && (
-        <div className="px-6 py-2 bg-red-950 border-b border-red-800 text-red-300 text-sm">
-          {error}
+        <div className={`px-6 py-2 border-b text-sm flex items-center gap-3 ${
+          cooldown > 0
+            ? 'bg-amber-950 border-amber-800 text-amber-300'
+            : 'bg-red-950 border-red-800 text-red-300'
+        }`}>
+          <span className="flex-1">{error}</span>
+          {cooldown > 0 && (
+            <span className="flex items-center gap-2 shrink-0 font-medium">
+              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              {cooldown}s
+            </span>
+          )}
         </div>
       )}
 

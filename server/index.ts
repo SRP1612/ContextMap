@@ -137,6 +137,14 @@ app.post('/api/generate-graph', async (req, res) => {
   } catch (err) {
     console.error('Error generating graph:', err);
     const message = err instanceof Error ? err.message : 'Unknown error';
+
+    // Detect Gemini rate-limit (429) and forward retry-after info
+    if (message.includes('429') || message.toLowerCase().includes('resource has been exhausted')) {
+      const retryAfter = 60; // Gemini free tier: wait ~60s
+      res.status(429).json({ error: 'Rate limit reached. Please wait before trying again.', retryAfter });
+      return;
+    }
+
     res.status(500).json({ error: message });
   }
 });

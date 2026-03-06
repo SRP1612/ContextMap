@@ -7,8 +7,9 @@ An interactive causal knowledge graph that maps the historical and topical conte
 ## How It Works
 
 1. **Search** — Type an event in the search bar. Results come from Wikipedia's API, ensuring every entry is a real, verifiable topic.
-2. **Generate** — Select a result. The app fetches the Wikipedia article text and sends it to Google Gemini, which identifies 4-8 causal events forming a chain leading to (and resulting from) the main event.
-3. **Explore** — The causal graph renders as an interactive node map. Drag nodes, zoom in/out, and click any node to read its summary and follow Wikipedia links.
+2. **Set Depth** — Choose a context depth from the dropdown: Narrow (50 yr), Standard (100 yr), Extended (200 yr), or Deep History (500 yr). Deeper settings explore philosophical shifts, cultural movements, and long-wave causality.
+3. **Generate** — Select a result. The app fetches the Wikipedia article text and sends it to Google Gemini, which identifies causal events forming a chain leading to (and resulting from) the main event. Changing the depth automatically regenerates the graph.
+4. **Explore** — The causal graph renders as an interactive node map. Drag nodes, zoom in/out, and click any node to read its summary and follow Wikipedia links.
 
 ### Example: 1939 Chillán Earthquake
 
@@ -87,10 +88,11 @@ ContextMap/
 
 ## Tech Stack
 
-- **Frontend:** React 19, TypeScript, [React Flow](https://reactflow.dev/), Tailwind CSS
+- **Frontend:** React 19, TypeScript, [React Flow](https://reactflow.dev/), [Dagre](https://github.com/dagrejs/dagre) (graph layout), Tailwind CSS
 - **Backend:** Express 5 (serves both API and built frontend)
 - **AI:** Google Gemini 2.5 Flash (free tier)
 - **Data Source:** Wikipedia API (ensures verifiable, factual input)
+- **Rate Limiting:** Automatic cooldown with countdown timer and auto-retry on Gemini 429 errors
 
 ## Configuration
 
