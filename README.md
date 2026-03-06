@@ -2,7 +2,7 @@
 
 An interactive causal knowledge graph that maps the historical and topical context behind any event. Search for a Wikipedia-verified event (historical or current), and an AI generates a visual "yarn map" showing the chain of causes, consequences, and connections — with links to learn more about each one.
 
-![React](https://img.shields.io/badge/React-19-blue) ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue) ![Gemini](https://img.shields.io/badge/Google%20Gemini-2.5%20Flash-orange)
+![React](https://img.shields.io/badge/React-19-blue) ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue) ![Gemini](https://img.shields.io/badge/Google%20Gemini-2.5%20Flash-orange) ![License](https://img.shields.io/badge/License-GPLv3-blue)
 
 ## How It Works
 
@@ -108,4 +108,6 @@ ContextMap/
 
 ## License
 
-MIT
+GNU General Public License v3.0 — see [LICENSE](LICENSE) for details.
+
+In short: you are free to use, modify, and distribute this project, but any derivative works must also be released under GPL v3 with source code available.
