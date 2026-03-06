@@ -1,4 +1,5 @@
 import type { Node, Edge } from '@xyflow/react';
+import Dagre from '@dagrejs/dagre';
 
 /** A single event/concept on the yarn map */
 export interface ContextNode {
@@ -45,23 +46,12 @@ const NODE_COLORS: Record<number, string> = {
 };
 
 export function toFlowNodes(nodes: ContextNode[]): Node[] {
-  const count = nodes.length;
-  const centerX = 400;
-  const centerY = 300;
-  const radiusX = 320;
-  const radiusY = 220;
-
   return nodes.map((n, i) => {
-    // Arrange in an arc/ellipse so they don't overlap
-    const angle = (Math.PI / (count - 1 || 1)) * i - Math.PI / 2;
-    const x = count === 1 ? centerX : centerX + radiusX * Math.cos(angle);
-    const y = count === 1 ? centerY : centerY + radiusY * Math.sin(angle) + 100;
     const color = NODE_COLORS[i % Object.keys(NODE_COLORS).length];
-
     return {
       id: n.id,
       type: 'contextNode',
-      position: { x, y },
+      position: { x: 0, y: 0 }, // placeholder — dagre will set real positions
       data: { ...n, color },
     };
   });
@@ -79,4 +69,34 @@ export function toFlowEdges(edges: ContextEdge[]): Edge[] {
     labelBgStyle: { fill: '#1e293b', fillOpacity: 0.85 },
     labelBgPadding: [6, 3] as [number, number],
   }));
+}
+
+const NODE_WIDTH = 220;
+const NODE_HEIGHT = 80;
+
+/** Apply dagre layout to position nodes hierarchically (left → right, chronological) */
+export function applyDagreLayout(nodes: Node[], edges: Edge[]): Node[] {
+  const g = new Dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
+  g.setGraph({ rankdir: 'LR', nodesep: 60, ranksep: 120 });
+
+  nodes.forEach((node) => {
+    g.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
+  });
+
+  edges.forEach((edge) => {
+    g.setEdge(edge.source, edge.target);
+  });
+
+  Dagre.layout(g);
+
+  return nodes.map((node) => {
+    const pos = g.node(node.id);
+    return {
+      ...node,
+      position: {
+        x: pos.x - NODE_WIDTH / 2,
+        y: pos.y - NODE_HEIGHT / 2,
+      },
+    };
+  });
 }

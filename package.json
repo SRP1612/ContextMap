@@ -13,6 +13,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@dagrejs/dagre": "^2.0.4",
     "@google/generative-ai": "^0.24.1",
     "@xyflow/react": "^12.10.1",
     "cors": "^2.8.6",

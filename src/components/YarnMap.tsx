@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import {
   ReactFlow,
   Background,
@@ -6,12 +6,14 @@ import {
   MiniMap,
   useNodesState,
   useEdgesState,
+  useReactFlow,
+  ReactFlowProvider,
   type Node,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
 import type { ContextGraph, ContextNode } from '../types';
-import { toFlowNodes, toFlowEdges } from '../types';
+import { toFlowNodes, toFlowEdges, applyDagreLayout } from '../types';
 import ContextNodeComponent from './ContextNodeComponent';
 
 interface YarnMapProps {
@@ -21,12 +23,22 @@ interface YarnMapProps {
 
 const nodeTypes = { contextNode: ContextNodeComponent };
 
-export default function YarnMap({ graph, onNodeClick }: YarnMapProps) {
-  const initialNodes = useMemo(() => toFlowNodes(graph.nodes), [graph]);
-  const initialEdges = useMemo(() => toFlowEdges(graph.edges), [graph]);
+function YarnMapInner({ graph, onNodeClick }: YarnMapProps) {
+  const rawNodes = useMemo(() => toFlowNodes(graph.nodes), [graph]);
+  const rawEdges = useMemo(() => toFlowEdges(graph.edges), [graph]);
+  const layoutNodes = useMemo(() => applyDagreLayout(rawNodes, rawEdges), [rawNodes, rawEdges]);
 
-  const [nodes, , onNodesChange] = useNodesState(initialNodes);
-  const [edges, , onEdgesChange] = useEdgesState(initialEdges);
+  const [nodes, setNodes, onNodesChange] = useNodesState(layoutNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(rawEdges);
+  const { fitView } = useReactFlow();
+
+  // Update nodes/edges when graph prop changes
+  useEffect(() => {
+    setNodes(layoutNodes);
+    setEdges(rawEdges);
+    // Give React Flow a tick to render, then fit the view
+    requestAnimationFrame(() => fitView({ padding: 0.3 }));
+  }, [layoutNodes, rawEdges, setNodes, setEdges, fitView]);
 
   const handleNodeClick = useCallback(
     (_: React.MouseEvent, node: Node) => {
@@ -62,5 +74,13 @@ export default function YarnMap({ graph, onNodeClick }: YarnMapProps) {
         />
       </ReactFlow>
     </div>
+  );
+}
+
+export default function YarnMap(props: YarnMapProps) {
+  return (
+    <ReactFlowProvider>
+      <YarnMapInner {...props} />
+    </ReactFlowProvider>
   );
 }
