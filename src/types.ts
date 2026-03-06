@@ -33,6 +33,16 @@ export interface WikiSearchResult {
   url: string;
 }
 
+/** Context depth presets controlling time range and analytical breadth */
+export type ContextDepth = 'narrow' | 'standard' | 'extended' | 'deep';
+
+export const DEPTH_OPTIONS: { value: ContextDepth; label: string; description: string }[] = [
+  { value: 'narrow',   label: 'Narrow (50 yr)',       description: 'Direct causes and immediate aftermath' },
+  { value: 'standard', label: 'Standard (100 yr)',     description: 'Key historical context and consequences' },
+  { value: 'extended', label: 'Extended (200 yr)',      description: 'Socioeconomic and cultural factors' },
+  { value: 'deep',     label: 'Deep History (500 yr)',  description: 'Philosophical shifts, collective unconscious, long-chain causality' },
+];
+
 /* ── helpers to convert ContextGraph → React Flow ── */
 
 const NODE_COLORS: Record<number, string> = {

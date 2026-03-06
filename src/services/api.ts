@@ -1,17 +1,14 @@
-import type { ContextGraph } from '../types';
+import type { ContextGraph, ContextDepth } from '../types';
 
-/**
- * Calls our local API server which in turn calls Anthropic's Claude
- * to generate a causal context graph for the given Wikipedia article.
- */
 export async function generateGraph(
   articleTitle: string,
   articleText: string,
+  depth: ContextDepth = 'standard',
 ): Promise<ContextGraph> {
   const res = await fetch('/api/generate-graph', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title: articleTitle, text: articleText }),
+    body: JSON.stringify({ title: articleTitle, text: articleText, depth }),
   });
 
   if (!res.ok) {

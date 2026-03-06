@@ -13,21 +13,60 @@ app.use(express.json({ limit: '1mb' }));
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? '');
 
-const SYSTEM_PROMPT = `You are a historian and causal analyst. Given the title and text of a Wikipedia article about a historical or topical event, your job is to produce a structured causal context map.
+type Depth = 'narrow' | 'standard' | 'extended' | 'deep';
 
-Identify 4-8 key events or concepts that form a causal chain leading to (and possibly resulting from) the main event. Each node should be a real, verifiable historical event or concept.
+const DEPTH_CONFIG: Record<Depth, { years: number; nodeRange: string; extra: string }> = {
+  narrow: {
+    years: 50,
+    nodeRange: '4-6',
+    extra: 'Focus on direct, proximate causes and immediate consequences. Stick to concrete, well-documented events.',
+  },
+  standard: {
+    years: 100,
+    nodeRange: '4-8',
+    extra: 'Include key historical context — political, economic, and social factors that set the stage for the event.',
+  },
+  extended: {
+    years: 200,
+    nodeRange: '6-10',
+    extra: `Go beyond proximate causes. Include socioeconomic transformations, cultural movements, demographic shifts,
+and institutional changes that created the conditions for this event over centuries. Consider how trade patterns,
+class structures, technological revolutions, and colonial histories thread into the causal chain.`,
+  },
+  deep: {
+    years: 500,
+    nodeRange: '8-14',
+    extra: `Trace the deepest roots — up to 500 years of causal history. Include:
+- Philosophical and intellectual movements (Enlightenment, Scholasticism, Humanism, etc.)
+- Cultural and psychological shifts in collective consciousness — changes in how societies understood risk, progress, fate, nature, or the self
+- Religious and ideological transformations that reshaped values and institutions
+- Long-wave economic cycles: feudalism → mercantilism → capitalism, wealth concentration, class creation
+- Demographic upheavals (plagues, migrations, urbanization) and their multi-generational ripple effects
+- Traditions, habits, and social norms inherited across generations that persisted into the event's era
+- How earlier catastrophes or triumphs rewired societal DNA — e.g., the Black Death creating a labor-scarce economy that empowered the middle class centuries later
+Think like a longue durée historian (Braudel, Annales School). Connect deep structures to the surface event.`,
+  },
+};
+
+function buildSystemPrompt(depth: Depth): string {
+  const cfg = DEPTH_CONFIG[depth];
+  return `You are a historian, philosopher, and causal analyst. Given the title and text of a Wikipedia article about a historical or topical event, produce a structured causal context map.
+
+Identify ${cfg.nodeRange} key events, concepts, movements, or shifts that form a causal chain leading to (and possibly resulting from) the main event. Look back up to ${cfg.years} years before the event for relevant context.
+
+${cfg.extra}
 
 Return ONLY valid JSON matching this exact schema — no markdown fences, no commentary:
 
 {
   "title": "Short title of the main event",
-  "summary": "2-4 sentence narrative explaining how these events interconnect causally",
+  "summary": "3-5 sentence narrative explaining how these events interconnect causally across time, highlighting the deepest threads",
   "nodes": [
     {
       "id": "unique_snake_case_id",
       "label": "Short Human-Readable Label",
       "year": "Year or date range (e.g. '1540s' or '1939')",
-      "summary": "2-3 sentence explanation of this event and its role in the causal chain",
+      "summary": "2-4 sentence explanation of this event/concept and its role in the causal chain. Be specific about HOW it connects to other nodes.",
       "wikipediaUrl": "https://en.wikipedia.org/wiki/Relevant_Article"
     }
   ],
@@ -46,10 +85,14 @@ Rules:
 - Wikipedia URLs must point to real, existing articles. Use the standard format: https://en.wikipedia.org/wiki/Article_Name
 - Focus on causation, not just correlation. Each edge should explain WHY one event led to another.
 - Include the main event itself as one of the nodes.
-- Be historically accurate. Do not invent events.`;
+- Be historically accurate. Do not invent events.
+- Edges can skip intermediate nodes to show long-range causal links.
+- The graph should tell a compelling story of how deep history shaped this moment.`;
+}
 
 app.post('/api/generate-graph', async (req, res) => {
-  const { title, text } = req.body;
+  const { title, text, depth: rawDepth } = req.body;
+  const depth: Depth = ['narrow', 'standard', 'extended', 'deep'].includes(rawDepth) ? rawDepth : 'standard';
 
   if (!title || !text) {
     res.status(400).json({ error: 'title and text are required' });
@@ -60,12 +103,13 @@ app.post('/api/generate-graph', async (req, res) => {
   const truncatedText = text.slice(0, 12000);
 
   try {
+    const tokenLimit = depth === 'deep' ? 16384 : depth === 'extended' ? 12288 : 8192;
     const model = genAI.getGenerativeModel({
       model: 'gemini-2.5-flash',
-      systemInstruction: SYSTEM_PROMPT,
+      systemInstruction: buildSystemPrompt(depth),
       generationConfig: {
         responseMimeType: 'application/json',
-        maxOutputTokens: 8192,
+        maxOutputTokens: tokenLimit,
       },
     });
 

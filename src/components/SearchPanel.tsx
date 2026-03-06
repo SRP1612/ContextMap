@@ -81,6 +81,8 @@ export default function SearchPanel({ onSelect, isLoading }: SearchPanelProps) {
             <li key={r.pageId}>
               <button
                 onClick={() => {
+                  if (debounceRef.current) clearTimeout(debounceRef.current);
+                  setResults([]);
                   setShowDropdown(false);
                   setQuery(r.title);
                   onSelect(r);
