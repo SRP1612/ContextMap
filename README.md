@@ -17,16 +17,35 @@ The app ships with a hardcoded example demonstrating how the Spanish conquest of
 
 ## Getting Started
 
-### Prerequisites
+### Quick Start (pre-built release)
 
-- [Node.js](https://nodejs.org/) 18+
-- A free [Google Gemini API key](https://aistudio.google.com/apikey) (no credit card required)
+If you downloaded a release `.zip`, **no build tools are needed** — just Node.js:
 
-### Installation
+1. **Install [Node.js](https://nodejs.org/)** (v18 or later). Verify with `node -v` in a terminal.
+2. **Unzip** the release folder anywhere.
+3. **Add your API key** — copy `.env.example` to `.env` and paste your free [Google Gemini API key](https://aistudio.google.com/apikey):
+   ```
+   GEMINI_API_KEY=your_key_here
+   ```
+4. **Double-click `ContextMap.bat`** — the app opens in your browser at http://localhost:3001.
+
+That's it. No `npm install`, no build step.
+
+### From Source (development)
+
+#### Prerequisites
+
+| Requirement | Version | How to get it |
+|---|---|---|
+| **Node.js** | 18+ | [nodejs.org](https://nodejs.org/) — use the LTS installer. This also installs `npm`. |
+| **npm** | 9+ | Comes with Node.js. Verify: `npm -v` |
+| **Gemini API key** | — | Free, no credit card: [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
+
+#### Installation
 
 ```bash
 # Clone the repo
-git clone https://github.com/YOUR_USERNAME/ContextMap.git
+git clone https://github.com/SRP1612/ContextMap.git
 cd ContextMap
 
 # Install dependencies
@@ -37,17 +56,18 @@ cp .env.example .env
 # Edit .env and paste your Gemini API key
 ```
 
-### Running
+> **Windows note:** If `cp` doesn't work, just copy `.env.example`, rename the copy to `.env`, and edit it.
 
-**Option A — Desktop (one command):**
+#### Running
 
-Double-click `ContextMap.bat` or run:
+**Option A — Production mode (one command):**
 
 ```bash
+npm run build
 npm start
 ```
 
-Then open http://localhost:3001 in your browser.
+Then open http://localhost:3001. Or double-click `ContextMap.bat`.
 
 **Option B — Development mode (hot reload):**
 
@@ -60,6 +80,16 @@ npm run dev
 ```
 
 Then open http://localhost:5173.
+
+#### Building a Release
+
+To produce a self-contained folder you can zip and share:
+
+```bash
+npm run build:release
+```
+
+This creates `release/ContextMap/` containing everything needed to run — recipients only need Node.js and their own API key.
 
 ## Project Structure
 
@@ -81,6 +111,8 @@ ContextMap/
 │   ├── types.ts                      # TypeScript types + graph conversion helpers
 │   ├── App.tsx                       # Main application shell
 │   └── main.tsx                      # Entry point
+├── scripts/
+│   └── build-release.js              # Builds distributable release folder
 ├── .env.example              # API key template (copy to .env)
 ├── ContextMap.bat            # One-click Windows launcher
 └── package.json
