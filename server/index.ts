@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { exec } from 'child_process';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -160,4 +161,10 @@ app.get('/{*path}', (_req, res) => {
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`ContextMap running at http://localhost:${PORT}`);
+  if (process.env.OPEN_BROWSER !== '0') {
+    const url = `http://localhost:${PORT}`;
+    const cmd = process.platform === 'win32' ? `start "" "${url}"` :
+                process.platform === 'darwin' ? `open "${url}"` : `xdg-open "${url}"`;
+    exec(cmd);
+  }
 });

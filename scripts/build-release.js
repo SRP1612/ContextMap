@@ -63,7 +63,6 @@ writeFileSync(
     ')\r\n' +
     '\r\n' +
     'echo Starting ContextMap...\r\n' +
-    'start "" http://localhost:3001\r\n' +
     'node server/server.mjs\r\n' +
     'pause\r\n',
 );
