@@ -20,7 +20,7 @@ export async function generateGraph(
     body: JSON.stringify({ title: articleTitle, text: articleText, depth }),
   });
 
-  if (res.status === 429) {
+  if (res.status === 429 || res.status === 503) {
     const body = await res.json();
     throw new RateLimitError(body.retryAfter ?? 60);
   }

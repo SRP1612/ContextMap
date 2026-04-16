@@ -90,6 +90,14 @@ Rules:
 - The graph should tell a compelling story of how deep history shaped this moment.`;
 }
 
+function isTransientError(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : '';
+  return message.includes('503') || message.includes('429')
+    || message.toLowerCase().includes('service unavailable')
+    || message.toLowerCase().includes('resource has been exhausted')
+    || message.toLowerCase().includes('high demand');
+}
+
 app.post('/api/generate-graph', async (req, res) => {
   const { title, text, depth: rawDepth } = req.body;
   const depth: Depth = ['narrow', 'standard', 'extended', 'deep'].includes(rawDepth) ? rawDepth : 'standard';
@@ -113,9 +121,28 @@ app.post('/api/generate-graph', async (req, res) => {
       },
     });
 
-    const result = await model.generateContent(
-      `Analyze this Wikipedia article and produce a causal context map.\n\nTitle: ${title}\n\nArticle text:\n${truncatedText}`,
-    );
+    const prompt = `Analyze this Wikipedia article and produce a causal context map.\n\nTitle: ${title}\n\nArticle text:\n${truncatedText}`;
+
+    // Retry with exponential backoff for transient errors (503, 429)
+    const MAX_RETRIES = 3;
+    let lastError: unknown;
+    let result;
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        result = await model.generateContent(prompt);
+        break;
+      } catch (retryErr) {
+        lastError = retryErr;
+        if (attempt < MAX_RETRIES && isTransientError(retryErr)) {
+          const delay = Math.pow(2, attempt + 1) * 1000; // 2s, 4s, 8s
+          console.warn(`Gemini transient error (attempt ${attempt + 1}/${MAX_RETRIES}), retrying in ${delay / 1000}s...`, retryErr instanceof Error ? retryErr.message : retryErr);
+          await new Promise((r) => setTimeout(r, delay));
+        } else {
+          throw retryErr;
+        }
+      }
+    }
+    if (!result) throw lastError;
 
     const responseText = result.response.text();
     if (!responseText) {
@@ -142,6 +169,13 @@ app.post('/api/generate-graph', async (req, res) => {
     if (message.includes('429') || message.toLowerCase().includes('resource has been exhausted')) {
       const retryAfter = 60; // Gemini free tier: wait ~60s
       res.status(429).json({ error: 'Rate limit reached. Please wait before trying again.', retryAfter });
+      return;
+    }
+
+    // Detect service unavailable (503) — transient overload after retries exhausted
+    if (message.includes('503') || message.toLowerCase().includes('service unavailable') || message.toLowerCase().includes('high demand')) {
+      const retryAfter = 30;
+      res.status(503).json({ error: 'Gemini is temporarily unavailable due to high demand. Please try again shortly.', retryAfter });
       return;
     }
 

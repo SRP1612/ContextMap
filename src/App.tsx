@@ -36,7 +36,7 @@ function App() {
 
   // Auto-retry when cooldown expires
   useEffect(() => {
-    if (cooldown === 0 && lastResultRef.current && error?.includes('Rate limit')) {
+    if (cooldown === 0 && lastResultRef.current && (error?.includes('Rate limit') || error?.includes('temporarily unavailable'))) {
       setError(null);
       handleSearch(lastResultRef.current);
     }
@@ -56,7 +56,7 @@ function App() {
     } catch (err) {
       if (err instanceof RateLimitError) {
         setCooldown(err.retryAfter);
-        setError('Rate limit reached — auto-retrying when cooldown expires.');
+        setError('Rate limit reached or service temporarily unavailable — auto-retrying when cooldown expires.');
       } else {
         setError(err instanceof Error ? err.message : 'Something went wrong');
       }
@@ -65,13 +65,15 @@ function App() {
     }
   }, [depth, cooldown]);
 
-  // Auto-regenerate when depth changes and there's a previous search
+  // Regenerate when depth changes — uses last search if available, otherwise current graph title
   useEffect(() => {
-    if (depth !== prevDepthRef.current && lastResultRef.current) {
+    if (depth !== prevDepthRef.current) {
       prevDepthRef.current = depth;
-      handleSearch(lastResultRef.current);
-    } else {
-      prevDepthRef.current = depth;
+      if (lastResultRef.current) {
+        handleSearch(lastResultRef.current);
+      } else if (graph.title) {
+        handleSearch({ title: graph.title, description: '', pageId: 0, url: '' });
+      }
     }
   }, [depth, handleSearch]);
 
