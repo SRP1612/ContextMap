@@ -12,27 +12,31 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
-import type { ContextGraph, ContextNode } from '../types';
-import { toFlowNodes, toFlowEdges, applyDagreLayout } from '../types';
+import type { ContextGraph, ContextNode, LayoutMode } from '../types';
+import { toFlowNodes, toFlowEdges, applyLayout } from '../graph/layout';
 import ContextNodeComponent from './ContextNodeComponent';
 
 interface YarnMapProps {
   graph: ContextGraph;
+  layout: LayoutMode;
   onNodeClick: (node: ContextNode) => void;
 }
 
 const nodeTypes = { contextNode: ContextNodeComponent };
 
-function YarnMapInner({ graph, onNodeClick }: YarnMapProps) {
+function YarnMapInner({ graph, layout, onNodeClick }: YarnMapProps) {
   const rawNodes = useMemo(() => toFlowNodes(graph.nodes), [graph]);
   const rawEdges = useMemo(() => toFlowEdges(graph.edges), [graph]);
-  const layoutNodes = useMemo(() => applyDagreLayout(rawNodes, rawEdges), [rawNodes, rawEdges]);
+  const layoutNodes = useMemo(
+    () => applyLayout(layout, rawNodes, rawEdges, graph.nodes),
+    [layout, rawNodes, rawEdges, graph.nodes],
+  );
 
   const [nodes, setNodes, onNodesChange] = useNodesState(layoutNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(rawEdges);
   const { fitView } = useReactFlow();
 
-  // Update nodes/edges when graph prop changes
+  // Update nodes/edges when the graph or layout mode changes
   useEffect(() => {
     setNodes(layoutNodes);
     setEdges(rawEdges);
@@ -68,7 +72,7 @@ function YarnMapInner({ graph, onNodeClick }: YarnMapProps) {
           className="!bg-slate-800 !border-slate-600 !shadow-lg [&>button]:!bg-slate-700 [&>button]:!border-slate-600 [&>button]:!text-slate-300 [&>button:hover]:!bg-slate-600"
         />
         <MiniMap
-          nodeColor="#3b82f6"
+          nodeColor={(n) => (n.data as { color?: string }).color ?? '#38bdf8'}
           maskColor="rgba(15, 23, 42, 0.8)"
           className="!bg-slate-800 !border-slate-600"
         />

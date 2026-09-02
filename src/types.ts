@@ -1,31 +1,42 @@
-import type { Node, Edge } from '@xyflow/react';
-import Dagre from '@dagrejs/dagre';
+import type { RelationGroup } from './services/wiki/properties';
 
-/** A single event/concept on the yarn map */
+/** A single article on the map. */
 export interface ContextNode {
   id: string;
   label: string;
-  year?: string;
+  title: string;
+  qid?: string;
+  /** Negative values are BCE. Undefined means no date could be resolved. */
+  year?: number;
   summary: string;
-  wikipediaUrl?: string;
+  thumbnail?: string;
+  wikipediaUrl: string;
+  /** Hops from the seed article; 0 is the seed itself. */
+  hop: number;
+  score: number;
 }
 
-/** A causal link between two nodes */
 export interface ContextEdge {
   source: string;
   target: string;
   label: string;
+  /** Undefined for link-strength edges, which carry no verifiable relation type. */
+  group?: RelationGroup;
+  /** True when derived from relatedness rather than a Wikidata property. */
+  inferred: boolean;
 }
 
-/** Full graph returned by the API */
 export interface ContextGraph {
   title: string;
   summary: string;
   nodes: ContextNode[];
   edges: ContextEdge[];
+  /** Number of HTTP requests used to build the graph; surfaced in the UI. */
+  requestCount: number;
+  /** Set when Wikidata was unreachable and the map fell back to link strength only. */
+  degraded?: boolean;
 }
 
-/** Wikipedia search result entry */
 export interface WikiSearchResult {
   title: string;
   description: string;
@@ -33,80 +44,31 @@ export interface WikiSearchResult {
   url: string;
 }
 
-/** Context depth presets controlling time range and analytical breadth */
-export type ContextDepth = 'narrow' | 'standard' | 'extended' | 'deep';
+export type LayoutMode = 'chronological' | 'radial';
 
-export const DEPTH_OPTIONS: { value: ContextDepth; label: string; description: string }[] = [
-  { value: 'narrow',   label: 'Narrow (50 yr)',       description: 'Direct causes and immediate aftermath' },
-  { value: 'standard', label: 'Standard (100 yr)',     description: 'Key historical context and consequences' },
-  { value: 'extended', label: 'Extended (200 yr)',      description: 'Socioeconomic and cultural factors' },
-  { value: 'deep',     label: 'Deep History (500 yr)',  description: 'Philosophical shifts, collective unconscious, long-chain causality' },
-];
+/** User-facing controls. Depth = hops outward, width = branches kept per article. */
+export interface GraphSettings {
+  depth: number;
+  width: number;
+  layout: LayoutMode;
+}
 
-/* ── helpers to convert ContextGraph → React Flow ── */
+export const DEPTH_RANGE = { min: 1, max: 3 } as const;
+export const WIDTH_RANGE = { min: 2, max: 8 } as const;
+export const NODE_BUDGET = 40;
 
-const NODE_COLORS: Record<number, string> = {
-  0: '#3b82f6', // blue
-  1: '#8b5cf6', // violet
-  2: '#ec4899', // pink
-  3: '#f97316', // orange
-  4: '#10b981', // emerald
-  5: '#06b6d4', // cyan
-  6: '#eab308', // yellow
+export const DEFAULT_SETTINGS: GraphSettings = {
+  depth: 2,
+  width: 5,
+  layout: 'chronological',
 };
 
-export function toFlowNodes(nodes: ContextNode[]): Node[] {
-  return nodes.map((n, i) => {
-    const color = NODE_COLORS[i % Object.keys(NODE_COLORS).length];
-    return {
-      id: n.id,
-      type: 'contextNode',
-      position: { x: 0, y: 0 }, // placeholder — dagre will set real positions
-      data: { ...n, color },
-    };
-  });
+/** Width shrinks with distance so hops 2 and 3 do not explode the node count. */
+export function widthForHop(width: number, hop: number): number {
+  return Math.max(1, Math.ceil(width / (hop + 1)));
 }
 
-export function toFlowEdges(edges: ContextEdge[]): Edge[] {
-  return edges.map((e, i) => ({
-    id: `e-${i}`,
-    source: e.source,
-    target: e.target,
-    label: e.label,
-    animated: true,
-    style: { stroke: '#64748b', strokeWidth: 2 },
-    labelStyle: { fill: '#94a3b8', fontSize: 11, fontWeight: 500 },
-    labelBgStyle: { fill: '#1e293b', fillOpacity: 0.85 },
-    labelBgPadding: [6, 3] as [number, number],
-  }));
-}
-
-const NODE_WIDTH = 220;
-const NODE_HEIGHT = 80;
-
-/** Apply dagre layout to position nodes hierarchically (left → right, chronological) */
-export function applyDagreLayout(nodes: Node[], edges: Edge[]): Node[] {
-  const g = new Dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
-  g.setGraph({ rankdir: 'LR', nodesep: 60, ranksep: 120 });
-
-  nodes.forEach((node) => {
-    g.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
-  });
-
-  edges.forEach((edge) => {
-    g.setEdge(edge.source, edge.target);
-  });
-
-  Dagre.layout(g);
-
-  return nodes.map((node) => {
-    const pos = g.node(node.id);
-    return {
-      ...node,
-      position: {
-        x: pos.x - NODE_WIDTH / 2,
-        y: pos.y - NODE_HEIGHT / 2,
-      },
-    };
-  });
+export function formatYear(year?: number): string {
+  if (year === undefined) return '—';
+  return year < 0 ? `${Math.abs(year)} BC` : String(year);
 }
