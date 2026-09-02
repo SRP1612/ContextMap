@@ -100,8 +100,8 @@ function App() {
 
       {graph?.degraded && !error && (
         <div className="px-6 py-2 border-b bg-amber-950 border-amber-800 text-amber-300 text-sm">
-          Wikidata was unreachable, so some links show as &ldquo;closely related&rdquo; instead
-          of a named relationship. Adjust a slider to retry.
+          Some Wikidata lookups failed, so parts of this map fall back to
+          &ldquo;closely related&rdquo; links. Adjust a slider to retry.
         </div>
       )}
 

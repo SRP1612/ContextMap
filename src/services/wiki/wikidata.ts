@@ -1,4 +1,11 @@
-import { fetchJson, SPARQL_API, queueSparql, withRetry } from './http';
+import {
+  fetchJson,
+  SPARQL_API,
+  queueSparql,
+  withRetry,
+  getCachedSparql,
+  setCachedSparql,
+} from './http';
 import {
   RELATION_PROPERTIES,
   REVERSIBLE_PROPERTIES,
@@ -14,7 +21,6 @@ export interface WikidataRelation {
   toLabel: string;
   pid: string;
   label: string;
-  year?: number;
 }
 
 interface SparqlBinding {
@@ -71,6 +77,20 @@ export async function expandFrontier(
   return dedupe([...forward, ...reverse]);
 }
 
+/** Run a SPARQL query, reusing a cached response when the query is identical. */
+async function runSparql(query: string, signal?: AbortSignal): Promise<SparqlResponse> {
+  const cached = getCachedSparql<SparqlResponse>(query);
+  if (cached) return cached;
+
+  const url = `${SPARQL_API}?format=json&query=${encodeURIComponent(query)}`;
+  const data = await queueSparql(
+    () => withRetry(() => fetchJson<SparqlResponse>(url, { signal, timeoutMs: 20_000 })),
+    signal,
+  );
+  setCachedSparql(query, data);
+  return data;
+}
+
 async function runDirectedQuery(
   qids: string[],
   direction: 'forward' | 'reverse',
@@ -79,27 +99,22 @@ async function runDirectedQuery(
   const values = qids.map((q) => `wd:${q}`).join(' ');
   const activeProps = direction === 'forward' ? RELATION_PROPERTIES : REVERSIBLE_PROPERTIES;
   const props = activeProps.map((r) => `wdt:${r.pid}`).join(' ');
-  const dateProps = DATE_PROPERTIES.map((p) => `wdt:${p}`).join('|');
   const triple = direction === 'forward' ? '?seed ?prop ?other.' : '?other ?prop ?seed.';
 
-  // No wikibase:label service here — labels come free from the Wikipedia titles,
-  // and the service roughly triples query time.
+  // No labels and no dates here: labels come from Wikipedia titles, and dates are
+  // fetched separately because an OPTIONAL date multiplies rows and pushes real
+  // relations past the LIMIT.
   const query = `
-SELECT ?seed ?prop ?other ?article ?date WHERE {
+SELECT ?seed ?prop ?other ?article WHERE {
   VALUES ?seed { ${values} }
   VALUES ?prop { ${props} }
   ${triple}
   ?article schema:about ?other ;
            schema:isPartOf <https://en.wikipedia.org/> .
-  OPTIONAL { ?other ${dateProps} ?date. }
 }
 LIMIT 300`;
 
-  const url = `${SPARQL_API}?format=json&query=${encodeURIComponent(query)}`;
-  const data = await queueSparql(
-    () => withRetry(() => fetchJson<SparqlResponse>(url, { signal, timeoutMs: 20_000 })),
-    signal,
-  );
+  const data = await runSparql(query, signal);
   const bindings = data.results?.bindings ?? [];
 
   return direction === 'forward'
@@ -122,18 +137,8 @@ function dedupe(bindings: SparqlBinding[]): WikidataRelation[] {
     const relation = RELATION_BY_PID.get(pid);
     if (!relation) continue;
 
-    const year = yearFromIso(b.date?.value);
     const key = `${fromQid}|${pid}|${toQid}`;
-    const existing = byKey.get(key);
-
-    // An entity can carry several date properties; always keep the earliest so
-    // repeated runs produce identical output.
-    if (existing) {
-      if (year !== undefined && (existing.year === undefined || year < existing.year)) {
-        existing.year = year;
-      }
-      continue;
-    }
+    if (byKey.has(key)) continue;
 
     byKey.set(key, {
       fromQid,
@@ -142,7 +147,6 @@ function dedupe(bindings: SparqlBinding[]): WikidataRelation[] {
       toLabel: title,
       pid,
       label: b.reverse ? relation.reverse : relation.forward,
-      year,
     });
   }
 
@@ -166,11 +170,7 @@ SELECT ?item ?date WHERE {
   ?item ${dateProps} ?date.
 }`;
 
-  const url = `${SPARQL_API}?format=json&query=${encodeURIComponent(query)}`;
-  const data = await queueSparql(
-    () => withRetry(() => fetchJson<SparqlResponse>(url, { signal, timeoutMs: 20_000 })),
-    signal,
-  );
+  const data = await runSparql(query, signal);
 
   for (const b of data.results?.bindings ?? []) {
     const qid = qidFromUri(b.item?.value ?? '');

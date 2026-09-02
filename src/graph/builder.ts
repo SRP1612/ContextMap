@@ -51,14 +51,8 @@ export async function buildGraph(seedTitle: string, opts: BuildOptions): Promise
   const nodes = new Map<string, WorkingNode>();
   const edges: ContextEdge[] = [];
 
-  const seedDates = seedMeta.qid
-    ? await session.run('seed date', () => getDates([seedMeta.qid!], signal), new Map<string, number>())
-    : new Map<string, number>();
-  const seedYear = resolveYear(
-    seedMeta.qid ? seedDates.get(seedMeta.qid) : undefined,
-    seedMeta.title,
-    seedMeta.extract,
-  );
+  // Provisional: real dates are resolved in one query once the node set is final.
+  const seedYear = resolveYear(undefined, seedMeta.title, seedMeta.extract);
 
   nodes.set(seedMeta.title, {
     id: seedMeta.title,
@@ -104,17 +98,20 @@ export async function buildGraph(seedTitle: string, opts: BuildOptions): Promise
       new Map(),
     );
 
+    // Dates from the relation rows are unreliable: those queries are LIMIT-capped, so
+    // whichever date row survived truncation wins. Resolved properly after the loop.
     const nextFrontier: WorkingNode[] = [];
     for (const { parent, candidate, score } of selected) {
       const meta = metaMap.get(candidate.title);
 
       if (meta && !nodes.has(meta.title)) {
+        const qid = meta.qid ?? candidate.qid;
         const node: WorkingNode = {
           id: meta.title,
           label: meta.title,
           title: meta.title,
-          qid: meta.qid ?? candidate.qid,
-          year: resolveYear(candidate.year, meta.title, meta.extract),
+          qid,
+          year: resolveYear(undefined, meta.title, meta.extract),
           summary: meta.extract,
           thumbnail: meta.thumbnail,
           wikipediaUrl: meta.url,
@@ -142,10 +139,25 @@ export async function buildGraph(seedTitle: string, opts: BuildOptions): Promise
     if (frontier.length === 0) break;
   }
 
+  const allNodes = [...nodes.values()];
+
+  // One date query for the whole map: per-hop lookups tripled SPARQL traffic and the
+  // public endpoint starts timing out well before that.
+  const allQids = allNodes.map((n) => n.qid).filter((q): q is string => Boolean(q));
+  const dateMap = await session.run(
+    'dates',
+    () => getDates(allQids, signal),
+    new Map<string, number>(),
+  );
+  for (const node of allNodes) {
+    const wikidataYear = node.qid ? dateMap.get(node.qid) : undefined;
+    if (wikidataYear !== undefined) node.year = wikidataYear;
+  }
+
   return {
     title: seedMeta.title,
     summary: seedMeta.extract.split('\n')[0] ?? '',
-    nodes: [...nodes.values()].map(stripInternal),
+    nodes: allNodes.map(stripInternal),
     edges,
     requestCount: session.requests,
     degraded: session.degraded,
@@ -211,7 +223,6 @@ async function collectCandidates(
         qid: rel.toQid,
         group: RELATION_BY_PID.get(rel.pid)?.group,
         relationLabel: rel.label,
-        year: rel.year,
       });
     }
 

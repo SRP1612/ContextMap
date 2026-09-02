@@ -21,7 +21,8 @@ export const GROUP_WEIGHT: Record<RelationGroup, number> = {
   sequence: 3.0,
   composition: 2.0,
   actors: 2.0,
-  place: 2.0,
+  // Place links are weak context: they cluster a map around wherever it happened.
+  place: 0.8,
 };
 
 export const RELATION_PROPERTIES: RelationProperty[] = [
@@ -42,7 +43,6 @@ export const RELATION_PROPERTIES: RelationProperty[] = [
   { pid: 'P1344', forward: 'participated in',    reverse: 'participant',         group: 'actors',      reversible: true },
 
   { pid: 'P276',  forward: 'location',           reverse: 'location of',         group: 'place',       reversible: false },
-  { pid: 'P17',   forward: 'country',            reverse: 'includes',            group: 'place',       reversible: false },
 ];
 
 export const REVERSIBLE_PROPERTIES = RELATION_PROPERTIES.filter((r) => r.reversible);

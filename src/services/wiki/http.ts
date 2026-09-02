@@ -76,9 +76,21 @@ export async function withRetry<T>(fn: () => Promise<T>, retries = 2): Promise<T
   }
 }
 
-const SPARQL_MIN_GAP_MS = 400;
+const SPARQL_MIN_GAP_MS = 700;
 let sparqlChain: Promise<unknown> = Promise.resolve();
 let lastSparqlAt = 0;
+
+// Identical queries recur constantly while dragging a slider or revisiting a topic.
+// Wikidata's public endpoint throttles hard, so never ask it the same thing twice.
+const sparqlCache = new Map<string, unknown>();
+
+export function getCachedSparql<T>(key: string): T | undefined {
+  return sparqlCache.get(key) as T | undefined;
+}
+
+export function setCachedSparql(key: string, value: unknown): void {
+  sparqlCache.set(key, value);
+}
 
 /**
  * Serialise SPARQL calls and space them out. The public endpoint returns 429
