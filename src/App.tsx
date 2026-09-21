@@ -5,18 +5,18 @@ import SearchPanel from './components/SearchPanel';
 import { chillanExample, chillanExampleArticle } from './data/chillanExample';
 import { getWikipediaExtract } from './services/wikipedia';
 import { generateGraph, RateLimitError } from './services/api';
-import type { ContextGraph, ContextNode, ContextDepth, WikiSearchResult } from './types';
-import { DEPTH_OPTIONS } from './types';
+import type { ContextGraph, ContextNode, ContextScale, WikiSearchResult } from './types';
+import { SCALE_OPTIONS } from './types';
 
 function App() {
   const [graph, setGraph] = useState<ContextGraph>(chillanExample);
   const [selectedNode, setSelectedNode] = useState<ContextNode | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [depth, setDepth] = useState<ContextDepth>('standard');
+  const [scale, setScale] = useState<ContextScale>('generational');
   const [cooldown, setCooldown] = useState(0);
   const lastResultRef = useRef<WikiSearchResult | null>(chillanExampleArticle);
-  const prevDepthRef = useRef<ContextDepth>(depth);
+  const prevScaleRef = useRef<ContextScale>(scale);
   const cooldownRef = useRef<ReturnType<typeof setInterval>>(undefined);
 
   // Cooldown countdown timer
@@ -53,7 +53,7 @@ function App() {
     try {
       const extract = await getWikipediaExtract(result.title);
       if (!extract) throw new Error('No Wikipedia content found for this article.');
-      const newGraph = await generateGraph(result.title, extract, depth);
+      const newGraph = await generateGraph(result.title, extract, scale);
       setGraph(newGraph);
     } catch (err) {
       if (err instanceof RateLimitError) {
@@ -65,15 +65,15 @@ function App() {
     } finally {
       setIsLoading(false);
     }
-  }, [depth, cooldown]);
+  }, [scale, cooldown]);
 
-  // Regenerate the current article when depth changes
+  // Regenerate the current article when the scale changes
   useEffect(() => {
-    if (depth !== prevDepthRef.current) {
-      prevDepthRef.current = depth;
+    if (scale !== prevScaleRef.current) {
+      prevScaleRef.current = scale;
       if (lastResultRef.current) handleSearch(lastResultRef.current);
     }
-  }, [depth, handleSearch]);
+  }, [scale, handleSearch]);
 
   return (
     <div className="w-screen h-screen flex flex-col bg-slate-950">
@@ -84,17 +84,17 @@ function App() {
         </h1>
         <SearchPanel onSelect={handleSearch} isLoading={isLoading} />
 
-        {/* Depth selector */}
+        {/* Scale selector */}
         <div className="relative group shrink-0">
           <select
-            value={depth}
-            onChange={(e) => setDepth(e.target.value as ContextDepth)}
+            value={scale}
+            onChange={(e) => setScale(e.target.value as ContextScale)}
             disabled={isLoading}
             className="appearance-none px-3 py-2.5 pr-8 rounded-lg bg-slate-800 border border-slate-600 text-slate-100 text-sm
                        focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer
                        disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {DEPTH_OPTIONS.map((opt) => (
+            {SCALE_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
           </select>
@@ -103,7 +103,7 @@ function App() {
           </div>
           <div className="absolute top-full right-0 mt-1 px-3 py-1.5 bg-slate-700 text-slate-300 text-xs rounded shadow-lg
                           whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-            {DEPTH_OPTIONS.find(o => o.value === depth)?.description}
+            {SCALE_OPTIONS.find(o => o.value === scale)?.description}
           </div>
         </div>
       </header>
@@ -141,15 +141,18 @@ function App() {
           )}
           <YarnMap
             graph={graph}
+            selectedId={selectedNode?.id ?? null}
             onNodeClick={(node) => setSelectedNode(node)}
+            onPaneClick={() => setSelectedNode(null)}
           />
         </div>
 
         {/* Detail sidebar */}
         <aside className="w-80 bg-slate-900 border-l border-slate-700 overflow-y-auto shrink-0">
           <DetailPanel
+            graph={graph}
             node={selectedNode}
-            overallSummary={graph.summary}
+            onSelect={(id) => setSelectedNode(graph.nodes.find((n) => n.id === id) ?? null)}
             onClose={() => setSelectedNode(null)}
           />
         </aside>

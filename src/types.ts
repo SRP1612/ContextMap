@@ -1,11 +1,21 @@
 import type { Node, Edge } from '@xyflow/react';
 import Dagre from '@dagrejs/dagre';
 
+/** What role a node plays relative to the searched subject */
+export type NodeKind = 'subject' | 'cause' | 'consequence' | 'person' | 'place' | 'idea' | 'parallel';
+
 /** A single event/concept on the yarn map */
 export interface ContextNode {
   id: string;
   label: string;
+  kind?: NodeKind;
+  /** Display label for the date, e.g. "1789" or "c. 1540s" */
   year?: string;
+  /** Numeric years (BCE negative) — used for sorting and window enforcement */
+  startYear?: number;
+  endYear?: number;
+  /** One-line "why this matters" */
+  hook?: string;
   summary: string;
   wikipediaUrl?: string;
 }
@@ -17,10 +27,20 @@ export interface ContextEdge {
   label: string;
 }
 
+/** The time window a graph was generated for */
+export interface ContextWindow {
+  label: string;
+  startYear: number | null;
+  endYear: number | null;
+  anchorYear: number;
+}
+
 /** Full graph returned by the API */
 export interface ContextGraph {
   title: string;
   summary: string;
+  subjectKind?: string;
+  window?: ContextWindow;
   nodes: ContextNode[];
   edges: ContextEdge[];
 }
@@ -33,18 +53,35 @@ export interface WikiSearchResult {
   url: string;
 }
 
-/** Context depth presets controlling time range and analytical breadth */
-export type ContextDepth = 'narrow' | 'standard' | 'extended' | 'deep';
+/** Scale presets controlling the time window and analytical breadth */
+export type ContextScale = 'immediate' | 'generational' | 'historical' | 'deep';
 
-export const DEPTH_OPTIONS: { value: ContextDepth; label: string; description: string }[] = [
-  { value: 'narrow',   label: 'Narrow (50 yr)',       description: 'Direct causes and immediate aftermath' },
-  { value: 'standard', label: 'Standard (100 yr)',     description: 'Key historical context and consequences' },
-  { value: 'extended', label: 'Extended (200 yr)',      description: 'Socioeconomic and cultural factors' },
-  { value: 'deep',     label: 'Deep History (500 yr)',  description: 'Philosophical shifts, collective unconscious, long-chain causality' },
+export const SCALE_OPTIONS: { value: ContextScale; label: string; description: string }[] = [
+  { value: 'immediate',    label: 'Immediate (~15 yr)',    description: 'Run-up and aftermath: specific people, decisions and incidents' },
+  { value: 'generational', label: 'Generational (~75 yr)', description: 'Movements, policies and technologies within living memory' },
+  { value: 'historical',   label: 'Historical (~300 yr)',  description: 'Institutions, ideologies and economic systems' },
+  { value: 'deep',         label: 'Deep time',             description: 'Origins and long-run roots, as far back as they go' },
 ];
+
+/** Display style per node kind */
+export const KIND_STYLE: Record<NodeKind, { label: string; color: string }> = {
+  subject:     { label: 'Subject',     color: '#f8fafc' },
+  cause:       { label: 'Cause',       color: '#f97316' },
+  consequence: { label: 'Consequence', color: '#10b981' },
+  person:      { label: 'Person',      color: '#3b82f6' },
+  place:       { label: 'Place',       color: '#eab308' },
+  idea:        { label: 'Idea',        color: '#8b5cf6' },
+  parallel:    { label: 'Parallel',    color: '#ec4899' },
+};
+
+/** Style for a node's kind, or undefined for missing/unknown kinds */
+export function kindStyle(kind: string | undefined): { label: string; color: string } | undefined {
+  return kind && kind in KIND_STYLE ? KIND_STYLE[kind as NodeKind] : undefined;
+}
 
 /* ── helpers to convert ContextGraph → React Flow ── */
 
+// Fallback palette for nodes without a (known) kind
 const NODE_COLORS: Record<number, string> = {
   0: '#3b82f6', // blue
   1: '#8b5cf6', // violet
@@ -57,7 +94,7 @@ const NODE_COLORS: Record<number, string> = {
 
 export function toFlowNodes(nodes: ContextNode[]): Node[] {
   return nodes.map((n, i) => {
-    const color = NODE_COLORS[i % Object.keys(NODE_COLORS).length];
+    const color = kindStyle(n.kind)?.color ?? NODE_COLORS[i % Object.keys(NODE_COLORS).length];
     return {
       id: n.id,
       type: 'contextNode',
@@ -67,27 +104,23 @@ export function toFlowNodes(nodes: ContextNode[]): Node[] {
   });
 }
 
+/** Plain edges; the map decides how to style them (depends on the current selection) */
 export function toFlowEdges(edges: ContextEdge[]): Edge[] {
   return edges.map((e, i) => ({
     id: `e-${i}`,
     source: e.source,
     target: e.target,
-    label: e.label,
-    animated: true,
-    style: { stroke: '#64748b', strokeWidth: 2 },
-    labelStyle: { fill: '#94a3b8', fontSize: 11, fontWeight: 500 },
-    labelBgStyle: { fill: '#1e293b', fillOpacity: 0.85 },
-    labelBgPadding: [6, 3] as [number, number],
+    data: { label: e.label },
   }));
 }
 
-const NODE_WIDTH = 220;
-const NODE_HEIGHT = 80;
+const NODE_WIDTH = 260;
+const NODE_HEIGHT = 140;
 
 /** Apply dagre layout to position nodes hierarchically (left → right, chronological) */
 export function applyDagreLayout(nodes: Node[], edges: Edge[]): Node[] {
   const g = new Dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
-  g.setGraph({ rankdir: 'LR', nodesep: 60, ranksep: 120 });
+  g.setGraph({ rankdir: 'LR', nodesep: 40, ranksep: 140 });
 
   nodes.forEach((node) => {
     g.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT });

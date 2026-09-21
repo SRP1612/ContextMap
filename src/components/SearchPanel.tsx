@@ -62,7 +62,7 @@ export default function SearchPanel({ onSelect, isLoading }: SearchPanelProps) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onFocus={() => results.length > 0 && setShowDropdown(true)}
-            placeholder="Search a historical or topical event…"
+            placeholder="Search any event, person, idea or place…"
             className="w-full px-4 py-2.5 rounded-lg bg-slate-800 border border-slate-600 text-slate-100 placeholder-slate-400
                        focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
             disabled={isLoading}

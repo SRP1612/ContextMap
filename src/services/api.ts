@@ -1,4 +1,4 @@
-import type { ContextGraph, ContextDepth } from '../types';
+import type { ContextGraph, ContextScale } from '../types';
 
 export class RateLimitError extends Error {
   retryAfter: number;
@@ -12,16 +12,18 @@ export class RateLimitError extends Error {
 export async function generateGraph(
   articleTitle: string,
   articleText: string,
-  depth: ContextDepth = 'standard',
+  scale: ContextScale = 'generational',
 ): Promise<ContextGraph> {
   const res = await fetch('/api/generate-graph', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title: articleTitle, text: articleText, depth }),
+    body: JSON.stringify({ title: articleTitle, text: articleText, scale }),
   });
 
   if (res.status === 429 || res.status === 503) {
     const body = await res.json();
+    // A daily quota won't clear in a minute, so surface it as a plain error instead of auto-retrying forever
+    if (body.daily) throw new Error(body.error);
     throw new RateLimitError(body.retryAfter ?? 60);
   }
 
