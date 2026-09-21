@@ -14,9 +14,6 @@ release
 *.local
 .env
 
-# Throwaway verification harnesses
-spike
-
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

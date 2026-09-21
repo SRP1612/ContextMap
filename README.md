@@ -1,114 +1,142 @@
 # ContextMap
 
-An interactive knowledge graph that maps the context around any Wikipedia topic. Search for a topic and ContextMap builds a visual "yarn map" of related events, people, places and concepts — drawn entirely from Wikidata's structured relationships and Wikipedia's own relevance ranking.
+An interactive causal knowledge graph that maps the historical and topical context behind any event. Search for a Wikipedia-verified event (historical or current), and an AI generates a visual "yarn map" showing the chain of causes, consequences, and connections — with links to learn more about each one.
 
-![React](https://img.shields.io/badge/React-19-blue) ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue) ![No AI](https://img.shields.io/badge/AI-none-brightgreen) ![License](https://img.shields.io/badge/License-GPLv3-blue)
-
-**No AI. No API keys. No server. One HTML file.**
-
-Because the graph is derived from structured data rather than a language model, the same topic at the same settings always produces the same map.
-
-## Getting Started
-
-Download `ContextMap.html` and double-click it. That's the whole process — it runs in any modern browser and needs an internet connection only to reach Wikipedia and Wikidata.
+![React](https://img.shields.io/badge/React-19-blue) ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue) ![Gemini](https://img.shields.io/badge/Google%20Gemini-2.5%20Flash-orange) ![License](https://img.shields.io/badge/License-GPLv3-blue)
 
 ## How It Works
 
-1. **Search** — Results come from Wikipedia's search API, so every entry is a real article.
-2. **Set depth and width** — Two independent sliders:
-   - **Depth (1–3)** — how many hops out from your topic to travel.
-   - **Width (2–8)** — how many branches to keep per topic. Width shrinks with each hop so distant rings don't explode.
-3. **Build** — For each article, ContextMap pulls typed relationships from Wikidata and related articles from Wikipedia's `morelike` search, ranks the candidates, and keeps the best.
-4. **Explore** — Drag and zoom the map, click a node for its summary, or rebuild the map around any node.
+1. **Search** — Type an event in the search bar. Results come from Wikipedia's API, ensuring every entry is a real, verifiable topic.
+2. **Set Depth** — Choose a context depth from the dropdown: Narrow (50 yr), Standard (100 yr), Extended (200 yr), or Deep History (500 yr). Deeper settings explore philosophical shifts, cultural movements, and long-wave causality.
+3. **Generate** — Select a result. The app fetches the Wikipedia article text and sends it to Google Gemini, which identifies causal events forming a chain leading to (and resulting from) the main event. Changing the depth automatically regenerates the graph.
+4. **Explore** — The causal graph renders as an interactive node map. Drag nodes, zoom in/out, and click any node to read its summary and follow Wikipedia links.
 
-### Where connections come from
+### Example: 1939 Chillán Earthquake
 
-Edges are labelled with the actual Wikidata property that links two items:
+The app ships with a hardcoded example demonstrating how the Spanish conquest of Chile in the 1540s set off a multi-century chain of events — replacing indigenous building practices with heavy European adobe construction — that directly amplified the death toll of the 1939 earthquake nearly 400 years later.
 
-| Group | Properties |
-|---|---|
-| Causal | has cause, has effect, immediate cause |
-| Sequence | follows, followed by, replaces, replaced by |
-| Composition | part of, has part |
-| Actors | participant, participated in |
-| Place | location, country |
+## Getting Started
 
-When Wikidata has no relationship, the edge falls back to a dashed **"closely related"** line derived from Wikipedia relevance. Solid labelled edges are verifiable; dashed ones are inferred.
+### Quick Start (pre-built release)
 
-Place properties are only followed forward. Reversing them would pull in every unrelated article that happens to share a country.
+If you downloaded a release `.zip`, **no build tools are needed** — just Node.js:
 
-### Dates and layout
+1. **Install [Node.js](https://nodejs.org/)** (v18 or later). Verify with `node -v` in a terminal.
+2. **Unzip** the release folder anywhere.
+3. **Add your API key** — copy `.env.example` to `.env` and paste your free [Google Gemini API key](https://aistudio.google.com/apikey):
+   ```
+   GEMINI_API_KEY=your_key_here
+   ```
+4. **Double-click `ContextMap.bat`** — the app opens in your browser at http://localhost:3001.
 
-Node years resolve from Wikidata first, then the article title, then the article text. Nodes with no resolvable date render dimmed and dashed.
+That's it. No `npm install`, no build step.
 
-- **Chronological** — left to right by year.
-- **Radial** — your topic at the centre, one ring per hop.
+### From Source (development)
 
-Switching layouts only repositions nodes; it never refetches.
+#### Prerequisites
 
-## Reliability
+| Requirement | Version | How to get it |
+|---|---|---|
+| **Node.js** | 18+ | [nodejs.org](https://nodejs.org/) — use the LTS installer. This also installs `npm`. |
+| **npm** | 9+ | Comes with Node.js. Verify: `npm -v` |
+| **Gemini API key** | — | Free, no credit card: [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
 
-The public Wikidata endpoint rate-limits bursts, so requests are serialized with spacing and retried with exponential backoff. If Wikidata is unreachable the map still builds from Wikipedia relevance alone and a banner explains that some links are unlabelled — a single failing source can never blank the map.
-
-A typical depth 2 / width 5 build uses about 13 requests.
-
-## Development
+#### Installation
 
 ```bash
+# Clone the repo
+git clone https://github.com/SRP1612/ContextMap.git
+cd ContextMap
+
+# Install dependencies
 npm install
-npm run dev          # http://localhost:5173
+
+# Set up your API key
+cp .env.example .env
+# Edit .env and paste your Gemini API key
 ```
 
-### Building
+> **Windows note:** If `cp` doesn't work, just copy `.env.example`, rename the copy to `.env`, and edit it.
+
+#### Running
+
+**Option A — Production mode (one command):**
+
+```bash
+npm run build
+npm start
+```
+
+Then open http://localhost:3001. Or double-click `ContextMap.bat`.
+
+**Option B — Development mode (hot reload):**
+
+```bash
+# Terminal 1: API server
+npm run dev:server
+
+# Terminal 2: Vite dev server with hot reload
+npm run dev
+```
+
+Then open http://localhost:5173.
+
+#### Building a Release
+
+To produce a self-contained folder you can zip and share:
 
 ```bash
 npm run build:release
 ```
 
-Produces `release/ContextMap.html` — a single self-contained file (~455 KB) with all JavaScript and CSS inlined. Nothing else is needed to run it.
+This creates `release/ContextMap/` containing everything needed to run — recipients only need Node.js and their own API key.
 
-### Project Structure
+## Project Structure
 
 ```
 ContextMap/
+├── server/
+│   └── index.ts              # Express API server + Gemini integration
 ├── src/
 │   ├── components/
 │   │   ├── ContextNodeComponent.tsx  # Custom styled graph node
-│   │   ├── ControlBar.tsx            # Depth/width sliders + layout toggle
-│   │   ├── DetailPanel.tsx           # Node details, Wikipedia + Wikidata links
-│   │   ├── SearchPanel.tsx           # Wikipedia search with autocomplete
-│   │   └── YarnMap.tsx               # React Flow visualization
-│   ├── graph/
-│   │   ├── builder.ts                # Breadth-first expansion
-│   │   ├── dates.ts                  # Year resolution
-│   │   ├── layout.ts                 # Chronological + radial layouts
-│   │   └── ranking.ts                # Deterministic candidate scoring
-│   ├── services/wiki/
-│   │   ├── articles.ts               # Batched extracts, morelike, links
-│   │   ├── http.ts                   # Fetch, timeout, retry, SPARQL queue
-│   │   ├── properties.ts             # Wikidata property whitelist
-│   │   ├── search.ts                 # Article search
-│   │   └── wikidata.ts               # SPARQL frontier expansion
-│   ├── types.ts
-│   ├── App.tsx
-│   └── main.tsx
-├── legacy/                   # Previous AI-based implementation, kept for reference
+│   │   ├── DetailPanel.tsx           # Sidebar with node details + Wikipedia links
+│   │   ├── SearchPanel.tsx           # Wikipedia entity search with autocomplete
+│   │   └── YarnMap.tsx               # React Flow graph visualization
+│   ├── data/
+│   │   └── chillanExample.ts         # Hardcoded example: 1939 Chillán earthquake
+│   ├── services/
+│   │   ├── api.ts                    # Frontend → API server bridge
+│   │   └── wikipedia.ts              # Wikipedia search + article text fetcher
+│   ├── types.ts                      # TypeScript types + graph conversion helpers
+│   ├── App.tsx                       # Main application shell
+│   └── main.tsx                      # Entry point
+├── scripts/
+│   └── build-release.js              # Builds distributable release folder
+├── .env.example              # API key template (copy to .env)
+├── ContextMap.bat            # One-click Windows launcher
 └── package.json
 ```
 
 ## Tech Stack
 
-- **Frontend:** React 19, TypeScript, [React Flow](https://reactflow.dev/), [Dagre](https://github.com/dagrejs/dagre), Tailwind CSS
-- **Data:** [Wikidata Query Service](https://query.wikidata.org/) (SPARQL) and the [Wikipedia Action API](https://www.mediawiki.org/wiki/API:Main_page)
-- **Build:** Vite with [vite-plugin-singlefile](https://github.com/richardtallent/vite-plugin-singlefile)
+- **Frontend:** React 19, TypeScript, [React Flow](https://reactflow.dev/), [Dagre](https://github.com/dagrejs/dagre) (graph layout), Tailwind CSS
+- **Backend:** Express 5 (serves both API and built frontend)
+- **AI:** Google Gemini 2.5 Flash (free tier)
+- **Data Source:** Wikipedia API (ensures verifiable, factual input)
+- **Rate Limiting:** Automatic cooldown with countdown timer and auto-retry on Gemini 429 errors
 
-Both data sources are public, anonymous, CORS-enabled and require no key. No custom request headers are sent anywhere, since a custom header would trigger a CORS preflight and break the `file://` use case.
+## Configuration
 
-## Known Limitations
+| Variable | Description |
+|---|---|
+| `GEMINI_API_KEY` | Your Google Gemini API key ([get one free](https://aistudio.google.com/apikey)) |
+| `PORT` | Server port (default: `3001`) |
 
-- **Geographic drift** — maps seeded on a place-heavy topic can pull in loosely related local articles.
-- **Sparse Wikidata** — topics with few structured relationships produce mostly dashed "closely related" edges.
-- **English Wikipedia only.**
+## Security Notes
+
+- **API keys are never committed.** The `.env` file is in `.gitignore`. Only `.env.example` (with placeholder values) is tracked.
+- **User input is restricted** to Wikipedia entity search — users cannot inject free-form prompts into the AI.
 
 ## License
 

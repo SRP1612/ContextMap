@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { searchWikipedia } from '../services/wiki/search';
+import { searchWikipedia } from '../services/wikipedia';
 import type { WikiSearchResult } from '../types';
 
 interface SearchPanelProps {

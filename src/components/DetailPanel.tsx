@@ -1,19 +1,12 @@
 import type { ContextNode } from '../types';
-import { formatYear } from '../types';
 
 interface DetailPanelProps {
   node: ContextNode | null;
   overallSummary: string;
   onClose: () => void;
-  onRecenter: (node: ContextNode) => void;
 }
 
-export default function DetailPanel({
-  node,
-  overallSummary,
-  onClose,
-  onRecenter,
-}: DetailPanelProps) {
+export default function DetailPanel({ node, overallSummary, onClose }: DetailPanelProps) {
   if (!node) {
     return (
       <div className="p-6">
@@ -35,48 +28,24 @@ export default function DetailPanel({
         ← Back to summary
       </button>
 
-      {node.thumbnail && (
-        <img
-          src={node.thumbnail}
-          alt=""
-          className="w-full h-32 object-cover rounded-lg mb-3 border border-slate-700"
-        />
+      {node.year && (
+        <span className="text-xs font-bold text-blue-400 uppercase tracking-wider block mb-1">
+          {node.year}
+        </span>
       )}
-
-      <span className="text-xs font-bold text-sky-400 uppercase tracking-wider block mb-1">
-        {formatYear(node.year)}
-        {node.year === undefined && ' · no date in Wikidata'}
-      </span>
       <h2 className="text-lg font-bold text-slate-100 mb-3">{node.label}</h2>
-      <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-line">{node.summary}</p>
+      <p className="text-sm text-slate-300 leading-relaxed">{node.summary}</p>
 
-      <button
-        onClick={() => onRecenter(node)}
-        className="w-full mt-4 px-3 py-2 text-sm rounded-md bg-sky-500/15 text-sky-300 border border-sky-500/40 hover:bg-sky-500/25 cursor-pointer"
-      >
-        Rebuild map around this topic
-      </button>
-
-      <div className="flex gap-4 mt-4 text-sm">
+      {node.wikipediaUrl && (
         <a
           href={node.wikipediaUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-sky-400 hover:text-sky-300 underline"
+          className="inline-block mt-4 text-sm text-blue-400 hover:text-blue-300 underline"
         >
-          Wikipedia →
+          Read more on Wikipedia →
         </a>
-        {node.qid && (
-          <a
-            href={`https://www.wikidata.org/wiki/${node.qid}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-slate-400 hover:text-slate-300 underline"
-          >
-            Wikidata {node.qid} →
-          </a>
-        )}
-      </div>
+      )}
     </div>
   );
 }
