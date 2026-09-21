@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import YarnMap from './components/YarnMap';
 import DetailPanel from './components/DetailPanel';
 import SearchPanel from './components/SearchPanel';
-import { chillanExample } from './data/chillanExample';
+import { chillanExample, chillanExampleArticle } from './data/chillanExample';
 import { getWikipediaExtract } from './services/wikipedia';
 import { generateGraph, RateLimitError } from './services/api';
 import type { ContextGraph, ContextNode, ContextDepth, WikiSearchResult } from './types';
@@ -15,7 +15,7 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [depth, setDepth] = useState<ContextDepth>('standard');
   const [cooldown, setCooldown] = useState(0);
-  const lastResultRef = useRef<WikiSearchResult | null>(null);
+  const lastResultRef = useRef<WikiSearchResult | null>(chillanExampleArticle);
   const prevDepthRef = useRef<ContextDepth>(depth);
   const cooldownRef = useRef<ReturnType<typeof setInterval>>(undefined);
 
@@ -43,8 +43,10 @@ function App() {
   }, [cooldown]);
 
   const handleSearch = useCallback(async (result: WikiSearchResult) => {
-    if (cooldown > 0) return; // don't fire during cooldown
+    // Remember the request first: during a cooldown it isn't fired now, but the
+    // auto-retry that runs when the cooldown expires will pick it up.
     lastResultRef.current = result;
+    if (cooldown > 0) return;
     setIsLoading(true);
     setError(null);
     setSelectedNode(null);
@@ -65,15 +67,11 @@ function App() {
     }
   }, [depth, cooldown]);
 
-  // Regenerate when depth changes — uses last search if available, otherwise current graph title
+  // Regenerate the current article when depth changes
   useEffect(() => {
     if (depth !== prevDepthRef.current) {
       prevDepthRef.current = depth;
-      if (lastResultRef.current) {
-        handleSearch(lastResultRef.current);
-      } else if (graph.title) {
-        handleSearch({ title: graph.title, description: '', pageId: 0, url: '' });
-      }
+      if (lastResultRef.current) handleSearch(lastResultRef.current);
     }
   }, [depth, handleSearch]);
 

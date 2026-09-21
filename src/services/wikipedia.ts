@@ -40,6 +40,7 @@ export async function getWikipediaExtract(title: string): Promise<string> {
   const params = new URLSearchParams({
     action: 'query',
     titles: title,
+    redirects: '1', // follow redirects, e.g. "French revolution" -> "French Revolution"
     prop: 'extracts',
     exintro: '0',
     explaintext: '1',

@@ -137,6 +137,7 @@ ContextMap/
 ## Security Notes
 
 - **API keys are never committed.** The `.env` file is in `.gitignore`. Only `.env.example` (with placeholder values) is tracked.
+- **The server only listens on `127.0.0.1`** and sends no CORS headers, so other machines on your network and other websites in your browser cannot use your API key.
 - **User input is restricted** to Wikipedia entity search — users cannot inject free-form prompts into the AI.
 
 ## License

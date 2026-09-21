@@ -1,6 +1,5 @@
 import dotenv from 'dotenv';
 import express from 'express';
-import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { exec } from 'child_process';
@@ -10,7 +9,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 const app = express();
-app.use(cors());
 app.use(express.json({ limit: '1mb' }));
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? '');
@@ -94,6 +92,28 @@ Rules:
 - The graph should tell a compelling story of how deep history shaped this moment.`;
 }
 
+interface GraphNode { id: string; label: string; year?: string; summary: string; wikipediaUrl?: string }
+interface GraphEdge { source: string; target: string; label: string }
+
+/**
+ * Models occasionally emit duplicate node ids or edges that point at unknown nodes,
+ * which the map can't render. Drop those rather than fail the whole request.
+ */
+function sanitizeGraph<T extends { nodes: GraphNode[]; edges: GraphEdge[] }>(raw: T): T {
+  const ids = new Set<string>();
+  const nodes: GraphNode[] = [];
+  for (const n of raw.nodes) {
+    if (n && typeof n.id === 'string' && n.id && !ids.has(n.id)) {
+      ids.add(n.id);
+      nodes.push(n);
+    }
+  }
+  const edges = raw.edges.filter((e) => e && ids.has(e.source) && ids.has(e.target) && e.source !== e.target);
+  const dropped = raw.nodes.length - nodes.length + (raw.edges.length - edges.length);
+  if (dropped > 0) console.warn(`Dropped ${dropped} invalid node/edge entries from model output`);
+  return { ...raw, nodes, edges };
+}
+
 function isTransientError(err: unknown): boolean {
   const message = err instanceof Error ? err.message : '';
   return message.includes('503') || message.includes('429')
@@ -108,6 +128,13 @@ app.post('/api/generate-graph', async (req, res) => {
 
   if (!title || !text) {
     res.status(400).json({ error: 'title and text are required' });
+    return;
+  }
+
+  if (!process.env.GEMINI_API_KEY) {
+    res.status(500).json({
+      error: 'GEMINI_API_KEY is not set. Copy .env.example to .env, add your key (https://aistudio.google.com/apikey) and restart the server.',
+    });
     return;
   }
 
@@ -159,12 +186,18 @@ app.post('/api/generate-graph', async (req, res) => {
     const graph = JSON.parse(cleaned);
 
     // Basic validation
-    if (!graph.title || !graph.nodes || !graph.edges) {
+    if (!graph.title || !Array.isArray(graph.nodes) || !Array.isArray(graph.edges)) {
       res.status(500).json({ error: 'Invalid graph structure from Gemini' });
       return;
     }
 
-    res.json(graph);
+    const clean = sanitizeGraph(graph);
+    if (clean.nodes.length === 0) {
+      res.status(500).json({ error: 'Gemini returned a graph with no usable nodes' });
+      return;
+    }
+
+    res.json(clean);
   } catch (err) {
     console.error('Error generating graph:', err);
     const message = err instanceof Error ? err.message : 'Unknown error';
@@ -194,8 +227,9 @@ app.get('/{*path}', (_req, res) => {
   res.sendFile(path.join(distPath, 'index.html'));
 });
 
-const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
+const PORT = Number(process.env.PORT) || 3001;
+// Loopback only: the server holds your API key, so it shouldn't be reachable from the network
+app.listen(PORT, '127.0.0.1', () => {
   console.log(`ContextMap running at http://localhost:${PORT}`);
   if (process.env.OPEN_BROWSER !== '0') {
     const url = `http://localhost:${PORT}`;

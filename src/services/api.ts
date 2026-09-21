@@ -26,8 +26,13 @@ export async function generateGraph(
   }
 
   if (!res.ok) {
-    const msg = await res.text();
-    throw new Error(`API error ${res.status}: ${msg}`);
+    // Server errors are JSON ({ error }); fall back to raw text for anything else (e.g. a proxy error page)
+    const raw = await res.text();
+    let msg = raw;
+    try {
+      msg = JSON.parse(raw).error ?? raw;
+    } catch { /* not JSON */ }
+    throw new Error(msg || `Request failed (${res.status})`);
   }
 
   return res.json();

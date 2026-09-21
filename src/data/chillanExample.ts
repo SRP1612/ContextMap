@@ -1,4 +1,12 @@
-import type { ContextGraph } from '../types';
+import type { ContextGraph, WikiSearchResult } from '../types';
+
+/** The real Wikipedia article behind the example (used when regenerating it at a different depth) */
+export const chillanExampleArticle: WikiSearchResult = {
+  title: '1939 Chillán earthquake',
+  description: '',
+  pageId: 0,
+  url: 'https://en.wikipedia.org/wiki/1939_Chill%C3%A1n_earthquake',
+};
 
 /** Hardcoded example: 1939 Chillán earthquake causal context */
 export const chillanExample: ContextGraph = {
