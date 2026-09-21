@@ -14,6 +14,8 @@ app.use(cors());
 app.use(express.json({ limit: '1mb' }));
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? '');
+// Override in .env if Google retires the default model (see https://ai.google.dev/gemini-api/docs/deprecations)
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
 type Depth = 'narrow' | 'standard' | 'extended' | 'deep';
 
@@ -115,7 +117,7 @@ app.post('/api/generate-graph', async (req, res) => {
   try {
     const tokenLimit = depth === 'deep' ? 16384 : depth === 'extended' ? 12288 : 8192;
     const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
+      model: GEMINI_MODEL,
       systemInstruction: buildSystemPrompt(depth),
       generationConfig: {
         responseMimeType: 'application/json',

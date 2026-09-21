@@ -122,7 +122,7 @@ ContextMap/
 
 - **Frontend:** React 19, TypeScript, [React Flow](https://reactflow.dev/), [Dagre](https://github.com/dagrejs/dagre) (graph layout), Tailwind CSS
 - **Backend:** Express 5 (serves both API and built frontend)
-- **AI:** Google Gemini 2.5 Flash (free tier)
+- **AI:** Google Gemini 2.5 Flash by default (free tier; configurable via `GEMINI_MODEL`)
 - **Data Source:** Wikipedia API (ensures verifiable, factual input)
 - **Rate Limiting:** Automatic cooldown with countdown timer and auto-retry on Gemini 429 errors
 
@@ -131,6 +131,7 @@ ContextMap/
 | Variable | Description |
 |---|---|
 | `GEMINI_API_KEY` | Your Google Gemini API key ([get one free](https://aistudio.google.com/apikey)) |
+| `GEMINI_MODEL` | Optional. Gemini model ID to use (default: `gemini-2.5-flash`). Set this if Google retires the default — see the [model list](https://ai.google.dev/gemini-api/docs/models). |
 | `PORT` | Server port (default: `3001`) |
 
 ## Security Notes
